@@ -6,6 +6,16 @@ MAX_FILE_SIZE = 500 * 1024
 MAX_CHUNKS = 500
 
 
+def get_node_source(source_lines: list[str], node) -> str:
+    """Extract source code for an AST node using line numbers."""
+    try:
+        start_line = node.lineno - 1
+        end_line = node.end_lineno
+        return "\n".join(source_lines[start_line:end_line])
+    except (AttributeError, IndexError):
+        return ""
+
+
 def detect_language(file_path: str) -> str:
     extension_map = {
         ".py": "python",
@@ -46,7 +56,7 @@ def _python_chunks(content: str, rel_path: str) -> list[dict]:
         if not statements:
             return chunks
 
-    lines = content.splitlines()
+    source_lines = content.split("\n")
     for node in ast.walk(tree):
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             continue
@@ -54,9 +64,9 @@ def _python_chunks(content: str, rel_path: str) -> list[dict]:
         end = getattr(node, "end_lineno", start)
         if (end - start + 1) < 3:
             continue
-        segment = ast.get_source_segment(content, node)
+        segment = get_node_source(source_lines, node)
         if not segment:
-            segment = "\n".join(lines[start - 1 : end])
+            segment = "\n".join(source_lines[start - 1 : end])
         chunks.append(
             {
                 "type": "class" if isinstance(node, ast.ClassDef) else "function",

@@ -1,5 +1,6 @@
 import json
 import os
+import re
 
 from dotenv import load_dotenv
 from groq import Groq
@@ -7,6 +8,21 @@ from groq import Groq
 load_dotenv()
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY", "")) if os.getenv("GROQ_API_KEY") else None
+
+
+def safe_parse_json(text: str) -> dict:
+    """Extract and parse JSON from LLM response, handling markdown code fences."""
+    text = text.strip()
+    text = re.sub(r"^```(?:json)?\s*", "", text)
+    text = re.sub(r"\s*```$", "", text)
+    text = text.strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        if match:
+            return json.loads(match.group())
+        raise
 
 
 def _default_scores(target_role: str) -> dict:
@@ -44,7 +60,7 @@ Return a JSON object with exactly these fields:
 
     try:
         completion = client.chat.completions.create(
-            model="llama-3.1-70b-versatile",
+            model="llama-3.3-70b-versatile",
             messages=[
                 {
                     "role": "system",
@@ -52,11 +68,11 @@ Return a JSON object with exactly these fields:
                 },
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.2,
+            temperature=0.1,
+            max_tokens=1000,
         )
-        content = completion.choices[0].message.content or "{}"
-        content = content.strip().removeprefix("```json").removesuffix("```").strip()
-        parsed = json.loads(content)
+        result_text = completion.choices[0].message.content or "{}"
+        parsed = safe_parse_json(result_text)
         parsed["relevance_score"] = int(parsed.get("relevance_score", 50))
         parsed["market_demand_score"] = int(parsed.get("market_demand_score", 50))
         return parsed

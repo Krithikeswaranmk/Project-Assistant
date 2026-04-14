@@ -4,7 +4,7 @@ from collections import Counter
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from supabase import create_client
+from supabase import Client, create_client
 
 load_dotenv()
 
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/profile", tags=["profile"])
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
-supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY) if SUPABASE_URL and SUPABASE_SERVICE_KEY else None
+supabase: Client | None = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY) if SUPABASE_URL and SUPABASE_SERVICE_KEY else None
 
 
 class ScoreFeedbackRequest(BaseModel):
