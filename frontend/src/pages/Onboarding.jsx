@@ -131,15 +131,52 @@ export default function Onboarding() {
       email: form.email,
       password: form.password,
     })
-    setAuthLoading(false)
-
     if (signUpError) {
+      const msg = String(signUpError.message || '').toLowerCase()
+      if (msg.includes('rate limit')) {
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: form.email,
+          password: form.password,
+        })
+        setAuthLoading(false)
+
+        if (signInError || !signInData.user) {
+          setError('Email rate limit reached. Wait a minute and try again, or use an existing confirmed account password.')
+          return
+        }
+
+        setForm((prev) => ({ ...prev, user_id: signInData.user.id }))
+        setStep(2)
+        return
+      }
+
+      setAuthLoading(false)
       setError(signUpError.message)
       return
     }
 
+    setAuthLoading(false)
+
     if (!data.user) {
       setError('No user returned from Supabase sign up.')
+      return
+    }
+
+    setForm((prev) => ({ ...prev, user_id: data.user.id }))
+    setStep(2)
+  }
+
+  async function handleSignInExisting() {
+    setAuthLoading(true)
+    setError('')
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      email: form.email,
+      password: form.password,
+    })
+    setAuthLoading(false)
+
+    if (signInError || !data.user) {
+      setError(signInError?.message || 'Unable to sign in with this email/password.')
       return
     }
 
@@ -195,6 +232,14 @@ export default function Onboarding() {
             >
               {authLoading ? 'Creating Account...' : 'Get Started ->'}
             </button>
+            <button
+              className="ml-2 rounded-lg px-4 py-2 font-medium transition-all duration-200 bg-gray-800 hover:bg-gray-700 text-white disabled:opacity-50"
+              disabled={!form.email || !form.password || authLoading}
+              onClick={handleSignInExisting}
+            >
+              Sign In Instead
+            </button>
+            <p className="text-xs text-gray-500">If you see email rate-limit errors, use Sign In Instead with the same credentials.</p>
           </div>
         )}
 
